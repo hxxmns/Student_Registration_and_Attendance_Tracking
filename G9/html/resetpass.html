@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password — Group 9</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <main class="auth-shell">
+
+        <section class="auth-panel">
+            <div>
+                <span class="entry-no">Recovery desk</span>
+                <h1 class="wordmark">G9</h1>
+                <p class="tagline">Pick a new password and you're back on file.</p>
+            </div>
+            <p class="stamp">Group 9 · Registration System</p>
+        </section>
+
+        <section class="auth-form-panel">
+            <div class="auth-form-wrap">
+
+                <form action="#" method="POST" id="resetForm">
+                    <h2>Reset password</h2>
+                    <p class="auth-subtext">Enter a new password for your account.</p>
+
+                    <div id="formError" class="form-error" role="alert"></div>
+
+                    <div class="field">
+                        <label for="password">New password</label>
+                        <input type="password" id="password" name="password" minlength="8" autocomplete="new-password" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="confirm_password">Confirm password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Update password</button>
+
+                    <a href="login.html" class="back-link">← Back to sign in</a>
+                </form>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script src="fx.js"></script>
+    <script src="ui.js"></script>
+    <script>
+        const token = new URLSearchParams(window.location.search).get('token');
+        const form = document.getElementById('resetForm');
+        const formError = document.getElementById('formError');
+        const btn = form.querySelector('.btn-submit');
+
+        function showError(msg) {
+            formError.style.display = 'none';
+            formError.textContent = msg;
+            formError.style.display = 'block';
+        }
+
+        if (!token) showError('Missing reset token. Use the link from your email.');
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            formError.style.display = 'none';
+            if (!token) return showError('Missing reset token. Use the link from your email.');
+
+            const password = document.getElementById('password').value;
+            const confirm_password = document.getElementById('confirm_password').value;
+            if (password !== confirm_password) return showError('Passwords do not match.');
+
+            G9FX.busy(btn, true, 'Updating…');
+            let redirecting = false;
+            try {
+                const res = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, password, confirm_password })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) return showError(data.message || 'Reset failed.');
+
+                redirecting = true;
+                G9FX.toast('Password changed. Taking you to sign in…', 'success', 2200);
+                setTimeout(() => { window.location.href = data.redirect || 'login.html'; }, 2000);
+            } catch (err) {
+                showError('Cannot reach the server. Check your connection and try again.');
+            } finally {
+                if (!redirecting) G9FX.busy(btn, false);
+            }
+        });
+    </script>
+
+</body>
+</html>

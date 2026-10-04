@@ -31,25 +31,41 @@
                     <h2>Create an account</h2>
                     <p class="auth-subtext">Fill in your details to register.</p>
 
+                    <div id="formError" class="form-error" role="alert"></div>
+
+                    <div class="field">
+                        <label for="userType">Account type</label>
+                        <select id="userType" name="userType" required>
+                            <option value="STUDENT" selected>Student</option>
+                            <option value="MODERATOR">Moderator</option>
+                            <option value="ADMIN">Admin</option>
+                        </select>
+                        <span id="userTypeError" class="field-error"></span>
+                        <div class="field-hint">Only one Admin and one Moderator account can exist.</div>
+                    </div>
+
                     <div class="field">
                         <label for="username">Username</label>
-                        <input type="text" id="username" name="username" required>
+                        <input type="text" id="username" name="username" minlength="3" maxlength="30" autocomplete="username" required>
+                        <span id="usernameError" class="field-error"></span>
                     </div>
 
                     <div class="field">
                         <label for="email">Email</label>
-                        <input type="email" id="email" name="email" required>
+                        <input type="email" id="email" name="email" maxlength="100" autocomplete="email" required>
+                        <span id="emailError" class="field-error"></span>
                     </div>
 
                     <div class="field">
                         <label for="password">Password</label>
-                        <input type="password" id="password" name="password" required>
+                        <input type="password" id="password" name="password" minlength="8" autocomplete="new-password" required>
+                        <span id="passwordError" class="field-error"></span>
                     </div>
 
                     <div class="field">
                         <label for="confirm_password">Confirm password</label>
-                        <input type="password" id="confirm_password" name="confirm_password" required>
-                        <span id="passwordError" class="field-error">Passwords do not match.</span>
+                        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+                        <span id="confirm_passwordError" class="field-error">Passwords do not match.</span>
                     </div>
 
                     <div class="check-row">
@@ -65,21 +81,71 @@
 
     </main>
 
+    <script src="fx.js"></script>
+    <script src="ui.js"></script>
     <script>
-        document.getElementById('signupForm').addEventListener('submit', function (e) {
+        const form = document.getElementById('signupForm');
+        const formError = document.getElementById('formError');
+        const btn = form.querySelector('.btn-submit');
+        const fields = ['userType', 'username', 'email', 'password', 'confirm_password'];
+
+        function clearErrors() {
+            formError.style.display = 'none';
+            fields.forEach(f => { document.getElementById(f + 'Error').style.display = 'none'; });
+        }
+
+        function showError(field, message) {
+            const span = field && document.getElementById(field + 'Error');
+            if (span) {
+                span.textContent = message;
+                span.style.display = 'block';
+            } else {
+                formError.textContent = message;
+                formError.style.display = 'block';
+            }
+        }
+
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
+            clearErrors();
 
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirm_password').value;
-            const errorSpan = document.getElementById('passwordError');
 
             if (password !== confirmPassword) {
-                errorSpan.style.display = 'inline';
+                showError('confirm_password', 'Passwords do not match.');
                 return;
             }
 
-            errorSpan.style.display = 'none';
-            window.location.href = 'homepage.html';
+            G9FX.busy(btn, true, 'Creating account…');
+            let redirecting = false;
+            try {
+                const res = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userType: document.getElementById('userType').value,
+                        username: document.getElementById('username').value,
+                        email: document.getElementById('email').value,
+                        password: password,
+                        confirm_password: confirmPassword
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    showError(data.field, data.message || 'Sign up failed.');
+                    return;
+                }
+
+                redirecting = true;
+                G9FX.toast('Account created. Taking you to sign in…', 'success', 1800);
+                setTimeout(() => { window.location.href = data.redirect || 'login.html?registered=1'; }, 1600);
+            } catch (err) {
+                showError(null, 'Cannot reach the server. Check your connection and try again.');
+            } finally {
+                if (!redirecting) G9FX.busy(btn, false);
+            }
         });
     </script>
 

@@ -14,7 +14,7 @@
             <div>
                 <span class="entry-no">Recovery desk</span>
                 <h1 class="wordmark">G9</h1>
-                <p class="tagline">We'll help you find your way back in.</p>
+                <p class="tagline">Locked out? We'll send you a way back in.</p>
             </div>
             <p class="stamp">Group 9 · Registration System</p>
         </section>
@@ -22,13 +22,15 @@
         <section class="auth-form-panel">
             <div class="auth-form-wrap">
 
-                <form action="#" method="POST">
+                <form action="#" method="POST" id="forgotForm">
                     <h2>Forgot password</h2>
-                    <p class="auth-subtext">Enter the email address linked to your account and we'll send you a link to reset your password.</p>
+                    <p class="auth-subtext">Enter your account email and we'll send a reset link.</p>
+
+                    <div id="formError" class="form-error" role="alert"></div>
 
                     <div class="field">
                         <label for="email">Email</label>
-                        <input type="email" id="email" name="email" required>
+                        <input type="email" id="email" name="email" maxlength="100" autocomplete="email" required>
                     </div>
 
                     <button type="submit" class="btn-submit">Send reset link</button>
@@ -41,11 +43,58 @@
 
     </main>
 
+    <script src="fx.js"></script>
+    <script src="ui.js"></script>
     <script>
-        document.querySelector('form').addEventListener('submit', function (e) {
+        const form = document.getElementById('forgotForm');
+        const formError = document.getElementById('formError');
+        const btn = form.querySelector('.btn-submit');
+
+        function cooldown(seconds) {
+            btn.disabled = true;
+            const label = btn.dataset.label || 'Send reset link';
+            const tick = () => {
+                if (seconds <= 0) {
+                    btn.textContent = label;
+                    btn.disabled = false;
+                    return;
+                }
+                btn.textContent = 'Resend in ' + seconds + 's';
+                seconds--;
+                setTimeout(tick, 1000);
+            };
+            tick();
+        }
+
+        form.addEventListener('submit', async function (e) {
             e.preventDefault();
-            alert('If an account exists for that email, a reset link has been sent.');
-            window.location.href = 'login.html';
+            formError.style.display = 'none';
+            G9FX.busy(btn, true, 'Sending…');
+            let sent = false;
+
+            try {
+                const res = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: document.getElementById('email').value })
+                });
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    formError.textContent = data.message || 'Could not send the email.';
+                    formError.style.display = 'block';
+                    return;
+                }
+
+                sent = true;
+                G9FX.toast(data.message || 'Reset link sent. Check your inbox.', 'success', 6000);
+            } catch (err) {
+                formError.textContent = 'Cannot reach the server. Check your connection and try again.';
+                formError.style.display = 'block';
+            } finally {
+                G9FX.busy(btn, false);
+                if (sent) cooldown(30);
+            }
         });
     </script>
 
